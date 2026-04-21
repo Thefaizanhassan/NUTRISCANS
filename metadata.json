@@ -1,0 +1,6 @@
+{
+  "name": "NutriScans",
+  "description": "A nutrition scanning and tracking app with a soft, aesthetic design, featuring macro tracking and visual analytics.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["AI-powered nutrition analysis", "Macro tracking", "Visual data analytics"]
+}
