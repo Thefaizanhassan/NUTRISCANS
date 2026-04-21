@@ -29,8 +29,9 @@ interface NutriState {
   addScan: (scan: api.CreateScanInput) => Promise<void>
   deleteScan: (id: string) => Promise<void>
   updateGoals: (goals: DailyGoal) => Promise<void>
-  updateProfile: (profile: Partial<UserProfile>) => Promise<void>
+  updateProfile: (profile: Partial<UserProfile>, options?: { silent?: boolean }) => Promise<void>
   clearHistory: () => Promise<void>
+  signOut: () => Promise<void>
   setCurrentScan: (scan: ScanResult | null) => void
   setScanning: (status: boolean) => void
   setSelectedDate: (date: Date) => void
@@ -116,12 +117,15 @@ export const useNutriStore = create<NutriState>()(
         id: tempId,
         imageUrl: scanInput.imageUrl || '',
         contextText: scanInput.contextText,
-        foodItems: scanInput.foodItems.map(item => ({ ...item, id: crypto.randomUUID() })) as any,
+        foodItems: scanInput.foodItems.map(item => ({ ...item, id: crypto.randomUUID() })),
         totalNutrition: scanInput.totalNutrition,
         overallConfidence: scanInput.overallConfidence,
         mealType: scanInput.mealType,
         timestamp: new Date(),
         modelUsed: scanInput.modelUsed || 'gemini-1.5-flash',
+        isManualEntry: scanInput.isManualEntry || false,
+        processingTimeMs: scanInput.processingTimeMs,
+        rawAiResponse: scanInput.rawAiResponse ?? null,
       }
 
       const previousHistory = [...get().scanHistory]
@@ -199,7 +203,7 @@ export const useNutriStore = create<NutriState>()(
       }
     },
 
-    updateProfile: async (profileUpdate) => {
+    updateProfile: async (profileUpdate, options) => {
       const userId = get().userId
       if (!userId) return
 
@@ -217,7 +221,9 @@ export const useNutriStore = create<NutriState>()(
           state.syncStatus = 'synced'
           state.lastSyncedAt = Date.now()
         })
-        toast.success('Profile updated')
+        if (!options?.silent) {
+          toast.success('Profile updated')
+        }
       } catch (error) {
         set((state) => {
           state.userProfile = previousProfile
@@ -254,6 +260,18 @@ export const useNutriStore = create<NutriState>()(
           state.syncStatus = 'error'
         })
         toast.error('Failed to clear history from cloud')
+      }
+    },
+
+    signOut: async () => {
+      try {
+        const { error } = await supabase.auth.signOut({ scope: 'global' })
+        if (error) throw error
+        get().resetState()
+        toast.success('Signed out')
+      } catch (error) {
+        console.error('Sign out failed:', error)
+        toast.error('Failed to sign out. Please try again.')
       }
     },
 
@@ -331,6 +349,7 @@ export const useNutriStore = create<NutriState>()(
         return {
           date: dateStr,
           scans: dayScans,
+          scanCount: dayScans.length,
           totalNutrition,
           goalProgress: {
             calories: goals.calories > 0 ? Math.round((totalNutrition.calories / goals.calories) * 100) : 0,

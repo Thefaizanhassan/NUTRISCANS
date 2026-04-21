@@ -37,12 +37,14 @@ export default function ScanPage() {
     if (!selectedImage || !userId) return
     
     setScanning(true)
+    const analysisStartedAt = performance.now()
     
     try {
       // Simulate AI analysis delay. Replace this with the real model call when available.
       await new Promise(resolve => setTimeout(resolve, 2800))
       
       const randomMock = MOCK_SCANS[Math.floor(Math.random() * MOCK_SCANS.length)]
+      const processingTimeMs = Math.round(performance.now() - analysisStartedAt)
 
       setCurrentScan({
         ...randomMock,
@@ -50,7 +52,15 @@ export default function ScanPage() {
         imageUrl: selectedImage,
         mealType,
         contextText: context,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isManualEntry: false,
+        processingTimeMs,
+        rawAiResponse: {
+          source: "mock-analysis",
+          analyzedAt: new Date().toISOString(),
+          mealType,
+          context: context || null,
+        },
       })
 
       toast.success("Analysis complete!")
@@ -63,7 +73,7 @@ export default function ScanPage() {
     }
   }
 
-  const handleImageSelect = (image: string | null, file: File | null) => {
+  const handleImageSelect = (image: string | null) => {
     setSelectedImage(image)
   }
 

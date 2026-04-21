@@ -1,11 +1,12 @@
 import * as React from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { LayoutDashboard, Clock, Camera, TrendingUp, User, Sun, Moon } from "lucide-react"
+import { LayoutDashboard, Clock, Camera, TrendingUp, User, Sun, Moon, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { useNutriStore } from "@/store/useNutriStore"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -16,10 +17,20 @@ export function Layout({ children }: LayoutProps) {
   const [mounted, setMounted] = React.useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const userProfile = useNutriStore((state) => state.userProfile)
+  const signOut = useNutriStore((state) => state.signOut)
+  const updateProfile = useNutriStore((state) => state.updateProfile)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  React.useEffect(() => {
+    if (!mounted || !userProfile?.themePreference) return
+    if (theme !== userProfile.themePreference) {
+      setTheme(userProfile.themePreference)
+    }
+  }, [mounted, setTheme, theme, userProfile?.themePreference])
 
   if (!mounted) return null
 
@@ -30,6 +41,12 @@ export function Layout({ children }: LayoutProps) {
     { icon: TrendingUp, label: "Insights", path: "/insights" },
     { icon: User, label: "Profile", path: "/profile" },
   ]
+
+  const handleThemeToggle = async () => {
+    const nextTheme = theme === "dark" ? "light" : "dark"
+    setTheme(nextTheme)
+    await updateProfile({ themePreference: nextTheme }, { silent: true })
+  }
 
   return (
     <TooltipProvider>
@@ -81,14 +98,28 @@ export function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          <div className="p-4 border-t border-border/50">
+          <div className="p-4 border-t border-border/50 space-y-2">
+            {userProfile ? (
+              <div className="rounded-2xl border border-border/50 bg-background/60 p-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Signed in as</p>
+                <p className="mt-1 line-clamp-1 text-sm font-bold">{userProfile.name}</p>
+              </div>
+            ) : null}
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 rounded-2xl px-4 py-6"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => void handleThemeToggle()}
             >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 rounded-2xl px-4 py-6 text-alert hover:text-alert hover:bg-alert/10 border-alert/20"
+              onClick={() => void signOut()}
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sign Out</span>
             </Button>
           </div>
         </aside>

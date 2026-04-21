@@ -13,7 +13,12 @@ export const MOCK_USER: UserProfile = {
   id: 'user_123',
   name: 'Faizan',
   dailyGoals: MOCK_DAILY_GOALS,
-  dietaryPreferences: ['High Protein', 'Low Sugar'],
+  dietaryPreferences: ['vegetarian', 'low_carb'],
+  activityLevel: 'moderate',
+  unitSystem: 'metric',
+  themePreference: 'system',
+  notificationsDailyReminder: true,
+  notificationsWeeklySummary: true,
   createdAt: new Date('2024-01-01'),
 };
 
@@ -28,8 +33,15 @@ const emptyNutrition: NutritionData = {
   saturatedFat: 0,
 };
 
+const baseScanMeta = {
+  isManualEntry: false,
+  processingTimeMs: 2400,
+  rawAiResponse: null,
+};
+
 export const MOCK_SCANS: ScanResult[] = [
   {
+    ...baseScanMeta,
     id: 'scan_1',
     imageUrl: 'https://picsum.photos/seed/chicken/600/400',
     contextText: 'Homemade dinner',
@@ -99,6 +111,7 @@ export const MOCK_SCANS: ScanResult[] = [
     },
   },
   {
+    ...baseScanMeta,
     id: 'scan_2',
     imageUrl: 'https://picsum.photos/seed/toast/600/400',
     mealType: 'breakfast',
@@ -135,6 +148,7 @@ export const MOCK_SCANS: ScanResult[] = [
     },
   },
   {
+    ...baseScanMeta,
     id: 'scan_3',
     imageUrl: 'https://picsum.photos/seed/yogurt/600/400',
     mealType: 'snack',
@@ -171,6 +185,7 @@ export const MOCK_SCANS: ScanResult[] = [
     },
   },
   {
+    ...baseScanMeta,
     id: 'scan_4',
     imageUrl: 'https://picsum.photos/seed/poke/600/400',
     mealType: 'lunch',
@@ -207,6 +222,7 @@ export const MOCK_SCANS: ScanResult[] = [
     },
   },
   {
+    ...baseScanMeta,
     id: 'scan_5',
     imageUrl: 'https://picsum.photos/seed/pasta/600/400',
     mealType: 'dinner',
@@ -247,6 +263,7 @@ export const MOCK_SCANS: ScanResult[] = [
 export const MOCK_WEEKLY_DATA: DailySummary[] = Array.from({ length: 7 }).map((_, i) => {
   const date = subDays(new Date(), i);
   const dateStr = format(date, 'yyyy-MM-dd');
+  const scanCount = 2 + Math.floor(Math.random() * 3);
   
   // Randomize daily nutrition around the goals
   const totalNutrition: NutritionData = {
@@ -262,7 +279,8 @@ export const MOCK_WEEKLY_DATA: DailySummary[] = Array.from({ length: 7 }).map((_
 
   return {
     date: dateStr,
-    scans: MOCK_SCANS.slice(0, 2 + Math.floor(Math.random() * 3)),
+    scans: MOCK_SCANS.slice(0, scanCount),
+    scanCount,
     totalNutrition,
     goalProgress: {
       calories: Math.min(100, Math.round((totalNutrition.calories / MOCK_DAILY_GOALS.calories) * 100)),

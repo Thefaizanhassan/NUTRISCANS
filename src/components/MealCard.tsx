@@ -3,7 +3,7 @@ import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { ScanResult } from "@/types"
 import { format } from "date-fns"
-import { Utensils } from "lucide-react"
+import { PencilLine, Sparkles, Utensils } from "lucide-react"
 
 interface MealCardProps {
   scan: ScanResult
@@ -42,6 +42,19 @@ export function MealCard({ scan, onClick }: MealCardProps) {
             <Badge variant="secondary" className="text-[10px] h-5 px-2 rounded-lg bg-primary/10 text-primary border-none font-bold uppercase tracking-tighter">
               {scan.mealType}
             </Badge>
+            <Badge variant="outline" className="h-5 rounded-lg px-2 text-[10px] font-bold uppercase tracking-tighter">
+              {scan.isManualEntry ? (
+                <>
+                  <PencilLine className="mr-1 h-3 w-3" />
+                  Manual
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI
+                </>
+              )}
+            </Badge>
             <span className="text-[10px] font-medium text-muted-foreground">{time}</span>
           </div>
         </div>
@@ -49,6 +62,7 @@ export function MealCard({ scan, onClick }: MealCardProps) {
 
       <div className="text-right">
         <p className="text-sm font-black text-foreground">{scan.totalNutrition.calories} <span className="text-[10px] font-bold text-muted-foreground uppercase">kcal</span></p>
+        <p className="text-[10px] font-medium text-muted-foreground">{Math.round(scan.overallConfidence)}% confidence</p>
         <p className="text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">View Details</p>
       </div>
     </motion.div>

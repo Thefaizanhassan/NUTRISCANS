@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useNutriStore } from "@/store/useNutriStore"
 import { toast } from "sonner"
-import { ScanResult, FoodItem } from "@/types"
 
 interface MealLogModalProps {
   open: boolean
@@ -47,14 +46,17 @@ export function MealLogModal({ open, onOpenChange }: MealLogModalProps) {
 
       const scanInput = {
         userId,
-        imageUrl: "https://picsum.photos/seed/manual/400/300",
+        imageUrl: "",
         mealType,
         totalNutrition: nutrition,
         overallConfidence: 100,
+        modelUsed: "manual-entry",
         isManualEntry: true,
+        processingTimeMs: 0,
         foodItems: [{
           name,
           portionSize: "1 serving",
+          portionGrams: null,
           nutrition,
           confidence: 100,
         }],

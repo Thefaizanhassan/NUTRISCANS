@@ -1,13 +1,62 @@
 import { supabase } from './client'
 import type { User } from '@supabase/supabase-js'
 import { 
+  ActivityLevel,
   ScanResult, 
   UserProfile, 
   DailyGoal, 
   NutritionData, 
   DailySummary,
-  FoodItem 
+  FoodItem,
+  ThemePreference,
+  UnitSystem,
 } from '@/types'
+
+function mapFoodItem(item: any): FoodItem {
+  return {
+    id: item.id,
+    name: item.name,
+    portionSize: item.portion_size,
+    portionGrams: item.portion_grams,
+    nutrition: {
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fibre: item.fibre,
+      sugar: item.sugar,
+      sodium: item.sodium,
+      saturatedFat: item.saturated_fat,
+    },
+    confidence: item.confidence,
+  }
+}
+
+function mapScan(scan: any): ScanResult {
+  return {
+    id: scan.id,
+    imageUrl: scan.image_url ?? '',
+    contextText: scan.context_text,
+    foodItems: Array.isArray(scan.food_items) ? scan.food_items.map(mapFoodItem) : [],
+    totalNutrition: {
+      calories: scan.total_calories,
+      protein: scan.total_protein,
+      carbs: scan.total_carbs,
+      fat: scan.total_fat,
+      fibre: scan.total_fibre,
+      sugar: scan.total_sugar,
+      sodium: scan.total_sodium,
+      saturatedFat: scan.total_saturated_fat,
+    },
+    overallConfidence: scan.overall_confidence,
+    mealType: scan.meal_type,
+    timestamp: new Date(scan.scanned_at),
+    modelUsed: scan.model_used,
+    isManualEntry: scan.is_manual_entry ?? false,
+    processingTimeMs: scan.processing_time_ms,
+    rawAiResponse: scan.raw_ai_response,
+  }
+}
 
 // --- Profile Operations ---
 
@@ -32,6 +81,14 @@ export async function getProfile(userId: string): Promise<UserProfile> {
       fibre: data.goal_fibre,
     },
     dietaryPreferences: data.dietary_preferences ?? ['none'],
+    heightCm: data.height_cm,
+    weightKg: data.weight_kg,
+    age: data.age,
+    activityLevel: (data.activity_level ?? 'moderate') as ActivityLevel,
+    unitSystem: (data.unit_system ?? 'metric') as UnitSystem,
+    themePreference: (data.theme ?? 'system') as ThemePreference,
+    notificationsDailyReminder: data.notifications_daily_reminder ?? true,
+    notificationsWeeklySummary: data.notifications_weekly_summary ?? true,
     createdAt: new Date(data.created_at)
   }
 }
@@ -73,6 +130,18 @@ export async function updateProfile(userId: string, data: Partial<UserProfile>):
     updateData.dietary_preferences =
       data.dietaryPreferences.length > 0 ? data.dietaryPreferences : ['none']
   }
+  if (data.heightCm !== undefined) updateData.height_cm = data.heightCm
+  if (data.weightKg !== undefined) updateData.weight_kg = data.weightKg
+  if (data.age !== undefined) updateData.age = data.age
+  if (data.activityLevel !== undefined) updateData.activity_level = data.activityLevel
+  if (data.unitSystem !== undefined) updateData.unit_system = data.unitSystem
+  if (data.themePreference !== undefined) updateData.theme = data.themePreference
+  if (data.notificationsDailyReminder !== undefined) {
+    updateData.notifications_daily_reminder = data.notificationsDailyReminder
+  }
+  if (data.notificationsWeeklySummary !== undefined) {
+    updateData.notifications_weekly_summary = data.notificationsWeeklySummary
+  }
 
   const { error } = await supabase
     .from('profiles')
@@ -110,6 +179,8 @@ export interface CreateScanInput {
   overallConfidence: number
   modelUsed?: string
   isManualEntry?: boolean
+  processingTimeMs?: number
+  rawAiResponse?: Record<string, unknown> | null
 }
 
 export async function createScan(input: CreateScanInput): Promise<ScanResult> {
@@ -133,6 +204,8 @@ export async function createScan(input: CreateScanInput): Promise<ScanResult> {
       overall_confidence: input.overallConfidence,
       model_used: input.modelUsed || 'gemini-1.5-flash',
       is_manual_entry: input.isManualEntry || false,
+      processing_time_ms: input.processingTimeMs,
+      raw_ai_response: input.rawAiResponse ?? null,
     })
     .select()
     .single()
@@ -145,6 +218,7 @@ export async function createScan(input: CreateScanInput): Promise<ScanResult> {
     user_id: input.userId,
     name: item.name,
     portion_size: item.portionSize,
+    portion_grams: item.portionGrams,
     calories: item.nutrition.calories,
     protein: item.nutrition.protein,
     carbs: item.nutrition.carbs,
@@ -171,41 +245,7 @@ export async function createScan(input: CreateScanInput): Promise<ScanResult> {
     throw itemsError
   }
 
-  return {
-    id: scanData.id,
-    imageUrl: scanData.image_url,
-    contextText: scanData.context_text,
-    foodItems: itemsData.map(item => ({
-      id: item.id,
-      name: item.name,
-      portionSize: item.portion_size,
-      nutrition: {
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        fibre: item.fibre,
-        sugar: item.sugar,
-        sodium: item.sodium,
-        saturatedFat: item.saturated_fat,
-      },
-      confidence: item.confidence,
-    })),
-    totalNutrition: {
-      calories: scanData.total_calories,
-      protein: scanData.total_protein,
-      carbs: scanData.total_carbs,
-      fat: scanData.total_fat,
-      fibre: scanData.total_fibre,
-      sugar: scanData.total_sugar,
-      sodium: scanData.total_sodium,
-      saturatedFat: scanData.total_saturated_fat,
-    },
-    overallConfidence: scanData.overall_confidence,
-    mealType: scanData.meal_type,
-    timestamp: new Date(scanData.scanned_at),
-    modelUsed: scanData.model_used,
-  }
+  return mapScan({ ...scanData, food_items: itemsData })
 }
 
 export async function getScanById(scanId: string): Promise<ScanResult> {
@@ -217,41 +257,7 @@ export async function getScanById(scanId: string): Promise<ScanResult> {
 
   if (scanError) throw scanError
 
-  return {
-    id: scan.id,
-    imageUrl: scan.image_url,
-    contextText: scan.context_text,
-    foodItems: scan.food_items.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      portionSize: item.portion_size,
-      nutrition: {
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        fibre: item.fibre,
-        sugar: item.sugar,
-        sodium: item.sodium,
-        saturatedFat: item.saturated_fat,
-      },
-      confidence: item.confidence,
-    })),
-    totalNutrition: {
-      calories: scan.total_calories,
-      protein: scan.total_protein,
-      carbs: scan.total_carbs,
-      fat: scan.total_fat,
-      fibre: scan.total_fibre,
-      sugar: scan.total_sugar,
-      sodium: scan.total_sodium,
-      saturatedFat: scan.total_saturated_fat,
-    },
-    overallConfidence: scan.overall_confidence,
-    mealType: scan.meal_type,
-    timestamp: new Date(scan.scanned_at),
-    modelUsed: scan.model_used,
-  }
+  return mapScan(scan)
 }
 
 export async function getUserScans(userId: string, options?: { 
@@ -277,41 +283,7 @@ export async function getUserScans(userId: string, options?: {
 
   if (error) throw error
 
-  return data.map(scan => ({
-    id: scan.id,
-    imageUrl: scan.image_url,
-    contextText: scan.context_text,
-    foodItems: scan.food_items.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      portionSize: item.portion_size,
-      nutrition: {
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        fibre: item.fibre,
-        sugar: item.sugar,
-        sodium: item.sodium,
-        saturatedFat: item.saturated_fat,
-      },
-      confidence: item.confidence,
-    })),
-    totalNutrition: {
-      calories: scan.total_calories,
-      protein: scan.total_protein,
-      carbs: scan.total_carbs,
-      fat: scan.total_fat,
-      fibre: scan.total_fibre,
-      sugar: scan.total_sugar,
-      sodium: scan.total_sodium,
-      saturatedFat: scan.total_saturated_fat,
-    },
-    overallConfidence: scan.overall_confidence,
-    mealType: scan.meal_type,
-    timestamp: new Date(scan.scanned_at),
-    modelUsed: scan.model_used,
-  }))
+  return data.map(mapScan)
 }
 
 export async function deleteScan(scanId: string): Promise<void> {
@@ -389,6 +361,7 @@ export async function getDailySummary(userId: string, date: string): Promise<Dai
       totalNutrition: {
         calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, sugar: 0, sodium: 0, saturatedFat: 0
       },
+      scanCount: 0,
       goalProgress: {
         calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0
       }
@@ -398,6 +371,7 @@ export async function getDailySummary(userId: string, date: string): Promise<Dai
   return {
     date: data.summary_date,
     scans: [], // We don't fetch full scans here for performance, use getUserScans if needed
+    scanCount: data.scan_count ?? 0,
     totalNutrition: {
       calories: data.total_calories,
       protein: data.total_protein,
@@ -435,6 +409,7 @@ export async function getWeeklySummaries(userId: string): Promise<DailySummary[]
   return data.map(d => ({
     date: d.summary_date,
     scans: [],
+    scanCount: d.scan_count ?? 0,
     totalNutrition: {
       calories: d.total_calories,
       protein: d.total_protein,
